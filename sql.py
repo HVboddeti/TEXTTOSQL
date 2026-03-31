@@ -1,36 +1,68 @@
-import sqlite3
+"""
+Database initialisation script for the STUDENT table.
 
-connection=sqlite3.connect("Student.db")
-
-
-
-cursor=connection.cursor()
-
-table_info="""
-Create table STUDENT(Name varchar(25), Class Varchar(25), Section Varchar(25),Marks INT);
+Safe to run multiple times — it will skip creation and inserts
+if the table already contains data.
 """
 
-cursor.execute(table_info)
+import sqlite3
+import sys
+
+DB_PATH = "Student.db"
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS STUDENT (
+    Name    VARCHAR(25),
+    Class   VARCHAR(25),
+    Section VARCHAR(25),
+    Marks   INT
+);
+"""
+
+SEED_DATA = [
+    ("Aarav Patel", "10th Grade", "A", 88),
+    ("Sophia Williams", "10th Grade", "B", 92),
+    ("Liam Johnson", "9th Grade", "A", 76),
+    ("Emma Brown", "9th Grade", "C", 84),
+    ("Noah Davis", "10th Grade", "A", 95),
+]
 
 
-cursor.execute('''INSERT INTO STUDENT VALUES ('Aarav Patel', '10th Grade', 'A', 88)''')
+def init_db(db_path: str = DB_PATH) -> None:
+    """Create the STUDENT table and seed it if empty."""
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
 
-cursor.execute('''INSERT INTO STUDENT VALUES ('Sophia Williams', '10th Grade', 'B', 92)''')
+        # Create table (IF NOT EXISTS makes this idempotent)
+        cursor.execute(SCHEMA)
 
-cursor.execute('''INSERT INTO STUDENT VALUES ('Liam Johnson', '9th Grade', 'A', 76)''')
+        # Only insert seed data if the table is empty
+        cursor.execute("SELECT COUNT(*) FROM STUDENT")
+        count = cursor.fetchone()[0]
 
-cursor.execute('''INSERT INTO STUDENT VALUES ('Emma Brown', '9th Grade', 'C', 84)''')
+        if count == 0:
+            cursor.executemany(
+                "INSERT INTO STUDENT (Name, Class, Section, Marks) VALUES (?, ?, ?, ?)",
+                SEED_DATA,
+            )
+            print(f"Inserted {len(SEED_DATA)} seed records.")
+        else:
+            print(f"Table already has {count} records — skipping seed insert.")
 
-cursor.execute('''INSERT INTO STUDENT VALUES ('Noah Davis', '10th Grade', 'A', 95)''')
+        conn.commit()
 
-print("The Inserted Records are:")
+        # Display current records
+        print("\nCurrent records:")
+        for row in cursor.execute("SELECT * FROM STUDENT"):
+            print(f"  {row}")
 
-data=cursor.execute('''Select * from Student''')
+    except sqlite3.Error as exc:
+        print(f"Database error: {exc}", file=sys.stderr)
+        sys.exit(1)
+    finally:
+        conn.close()
 
-for row in data:
-    print(row)
 
-
-connection.commit()
-connection.close()
-
+if __name__ == "__main__":
+    init_db()
